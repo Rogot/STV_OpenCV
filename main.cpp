@@ -31,33 +31,12 @@ cv::Point maxLoc(0,0);
 int hmin = 11, smin = 121, vmin = 151;
 int hmax = 179, smax = 186, vmax = 255;
 
-
-void getContours(cv::Mat imgDil, cv::Mat img) {
-
-	std::vector<std::vector<cv::Point>> contours;
-	std::vector<cv::Vec4i> hierarchy;
-
-	cv::findContours(imgDil, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-	//cv::drawContours(img, contours, -1, cv::Scalar(255,0,255),2);
-
-	for (int i = 0; i < contours.size(); ++i)
-	{
-		int area = cv::contourArea(contours[i]);
-		std::cout << area << std::endl;
-		if (area > 1000)
-		{
-			cv::drawContours(img, contours, i, cv::Scalar(255, 0, 255), 2);
-			cv::imshow("Counters", img);
-			cv::waitKey(0);
-			cv::destroyWindow("Counters");
-		}
-	}
-
-}
+int lowThreshold = 65;
+float ratio = 3;
 
 int main()
 {
-	int num_ph = 19;
+	int num_ph = 8;
 	std::string file_name = "./Test_photo/wt" + std::to_string(num_ph) + ".jpg";
 	
 	cv::Mat imgGray, imgBlur, imgCanny, imgDil;
@@ -66,19 +45,19 @@ int main()
 
 	//Preprocessing
 	cv::cvtColor(image, imgGray, cv::COLOR_BGR2GRAY);
-	cv::GaussianBlur(imgGray, imgBlur, cv::Size(3, 3), 3, 0);
-	cv::Canny(imgBlur, imgCanny, 25,75);
+	cv::blur(imgGray, imgBlur, cv::Size(3, 3));
+	cv::Canny(imgGray, imgCanny, lowThreshold, lowThreshold * ratio, 3);
 
 	cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
 	cv::dilate(imgCanny, imgDil, kernel);
 
-	getContours(imgDil, image);
+	getContours(imgCanny, image);
 
 
 	cv::imshow("origin", image);
-	cv::imshow("Gaussian Blur", imgBlur);
-	cv::imshow("Canny", imgCanny);
-	cv::imshow("Dil", imgDil);
+	//cv::imshow("Gaussian Blur", imgBlur);
+	//cv::imshow("Canny", imgCanny);
+	cv::imshow("Dil", imgCanny);
 
 	cv::waitKey(0);
 	cv::destroyAllWindows();

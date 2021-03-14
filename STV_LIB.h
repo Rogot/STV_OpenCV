@@ -33,40 +33,49 @@ int* getHistogram(const cv::Mat arr)
 	return hist;
 }
 
-float scan_sec(const cv::Mat& ImputArray, const cv::Mat& Mask, int x, int y) {
-	int count = 0;
-	int offset = 10;
-	for (int i = 0; i < Mask.rows; ++i) {
-		for (int j = 0; j < Mask.cols; ++j) {
-			if (Mask.at<char>(i, j) <= ImputArray.at<char>(x + i, y + j) + offset && Mask.at<char>(i, j) >= ImputArray.at<char>(x + i, y + j) - offset)
-				//if (ImputArray.at<char>(x + i, y + j) + offset <= Mask.at<char>(i, j) && ImputArray.at<char>(x + i, y + j) - offset >= Mask.at<char>(i, j))
-				//if (ImputArray.at<char>(x + i, y + j) == Mask.at<char>(i, j))
-			{
-				count++;
-			}
-		}
-	}
-	return count / (Mask.rows * Mask.cols);
-}
 
-void find_Object(const cv::Mat& ImputArray, const cv::Mat& Mask, cv::Point& Point, float percent) {
-	float res;
-	for (int i = 0; i < ImputArray.rows / Mask.rows; ++i) {
-		for (int j = 0; j < ImputArray.cols / Mask.cols; ++j) {
-			Point.x = i * Mask.rows;
-			Point.y = j * Mask.cols;
-			res = scan_sec(ImputArray, Mask, Point.x, Point.y);
-			if (res >= percent)
-			{
-				Point.x *= i;
-				Point.y *= j;
-				return;
-			}
+void getContours(cv::Mat imgDil, cv::Mat img) {
+
+	std::vector<std::vector<cv::Point>> contours;
+	std::vector<cv::Vec4i> hierarchy;
+
+	cv::findContours(imgDil, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+	std::string objType;
+
+	std::vector<std::vector<cv::Point>> conPoly(contours.size());
+	std::vector<cv::Rect> boundRect(contours.size());
+	//cv::drawContours(img, contours, -1, cv::Scalar(255,0,255),2);
+
+	for (int i = 0; i < contours.size(); ++i)
+	{
+		int area = cv::contourArea(contours[i]);
+
+
+
+		if (area > 2500 - 300 && area < 2500 + 250) 
+		{
+			float peri = cv::arcLength(contours[i], true);
+			cv::approxPolyDP(contours[i], conPoly[i], 0.001 * peri, true);
+			cv::drawContours(img, conPoly, i, cv::Scalar(255, 0, 255), 2);
+			//std::cout << conPoly[i].size() << std::endl;
+			boundRect[i] = boundingRect(conPoly[i]);
+
+			int objCor = (int)conPoly[i].size();
+
+			if (objCor == 3) { objType = "Tri"; }
+			else if (objCor == 4) { objType = "Rect"; }
+			else if (objCor > 4) { objType = "Circle"; }
+
+			cv::rectangle(img, boundRect[i].tl(), boundRect[i].br(), cv::Scalar(0, 255, 0), 2);
+			//cv::putText(img, objType, { boundRect[i].x, boundRect[i].y - 5 }, cv::FONT_HERSHEY_DUPLEX, 0.75, cv::Scalar(100, 50, 200), 2, 1);
+			std::cout << area << std::endl;
+
+			cv::imshow("TEST", img);
+			cv::waitKey(0);
 		}
 	}
-	//if image don't have this pattern
-	Point.x = 0;
-	Point.y = 0;
+
 }
 
 //Drow rectingle
