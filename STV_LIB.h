@@ -6,6 +6,7 @@
 #include <opencv2/features2d/features2d.hpp>
 
 #include <cmath>
+#include <algorithm>
 
 
 // for storing RGB channels
@@ -30,6 +31,7 @@ cv::Scalar upper(hmax, smax, vmax);
 
 //Вестор с координатами всех контуров с QR и цветным наконечником
 std::vector<cv::Rect> boundRectQR, boundRectTip, boundRectTemp;
+int countRec = 0;
 
 
 //Find center of rectangle
@@ -48,7 +50,7 @@ void findRect(std::vector<cv::Rect> boundRectQR, std::vector<cv::Rect> boundRect
 	float dist = 0;
 	float distMin = 0;
 
-	int numQR = 0, numTip = 0;
+	int numQR = 0, numTip = 0, zap = 0;
 
 	cv::Point p1, p2;
 
@@ -74,8 +76,15 @@ void findRect(std::vector<cv::Rect> boundRectQR, std::vector<cv::Rect> boundRect
 		}
 	}
 
-	boundRectTemp.push_back(boundRectQR[numQR]);
-	boundRectTemp.push_back(boundRectTip[numTip]);
+	boundRectTemp.clear();
+	if (boundRectQR.size() != 0) {
+		boundRectTemp.push_back(boundRectQR[numQR]);
+		countRec++;
+	}
+	if (boundRectTip.size() != 0) {
+		boundRectTemp.push_back(boundRectTip[numTip]);
+		countRec++;
+	}
 }
 
 
@@ -147,12 +156,17 @@ std::vector<cv::Rect> getContours(cv::Mat imgDil, cv::Mat img, int numPix, float
 	return boundRect;
 }
 
-void clear_vect(std::vector<cv::Rect> boundRect) {
 
-	for (int i = 0; i < boundRect.size(); ++i)
+void clear_vect(std::vector<cv::Rect> boundRectTemp, std::vector<cv::Rect>& boundRect) {
+
+	boundRect.clear();
+	std::vector<cv::Rect>::iterator it = boundRectTemp.begin();
+	for (it; it < boundRectTemp.end(); ++it)
 	{
-		if (boundRect[i].x == 0 && boundRect[i].y == 0)
-			boundRect.erase(boundRect.begin() + i * sizeof(cv::Rect));
+		if (it->x > 0 || it->y > 0)
+		{
+			boundRect.push_back(*it);
+		}
 	}
 }
 
@@ -167,8 +181,9 @@ void find_QR(cv::Mat img)
 	//cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
 	//cv::dilate(imgCanny, imgDil, kernel);
 
-	boundRectQR = getContours(imgCanny, img, 2500, 300, 0.001);
-	//clear_vect(boundRectQR);
+	boundRectTemp = getContours(imgCanny, img, 2500, 300, 0.001);
+	clear_vect(boundRectTemp, boundRectQR);
+	//boundRectTemp.clear();
 }
 
 //Find orange tip
@@ -177,8 +192,9 @@ void find_tip(cv::Mat img) {
 	cv::inRange(imgHSV, lower, upper, mask);
 	cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
 	cv::dilate(mask, imgDil, kernel);
-	boundRectTip = getContours(imgDil, img, 310, 110, 0.02);
-	//clear_vect(boundRectTip);
+	boundRectTemp = getContours(imgDil, img, 310, 110, 0.02);
+	clear_vect(boundRectTemp, boundRectTip);
+	//boundRectTemp.clear();
 }
 
 //Drow rectingle

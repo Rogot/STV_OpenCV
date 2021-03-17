@@ -44,8 +44,11 @@ int main()
 		find_tip(image);
 		findRect(boundRectQR, boundRectTip);
 
-		cv::rectangle(image, boundRectTemp[0].tl(), boundRectTemp[0].br(), cv::Scalar(0, 255, 0), 2);
-		cv::rectangle(image, boundRectTemp[1].tl(), boundRectTemp[1].br(), cv::Scalar(0, 255, 0), 2);
+		for (int i = 0; i < countRec; ++i)
+		{
+			cv::rectangle(image, boundRectTemp[i].tl(), boundRectTemp[i].br(), cv::Scalar(0, 255, 0), 2);
+		}
+		countRec = 0;
 
 		boundRectTemp.clear();
 		//cv::imshow("Image mask", mask);
