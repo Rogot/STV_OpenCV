@@ -28,38 +28,33 @@ double maxVal;
 cv::Point minLoc(0,0);
 cv::Point maxLoc(0,0);
 
-int hmin = 11, smin = 121, vmin = 151;
-int hmax = 179, smax = 186, vmax = 255;
-
-int lowThreshold = 65;
-float ratio = 3;
 
 int main()
 {
-	int num_ph = 8;
-	std::string file_name = "./Test_photo/wt" + std::to_string(num_ph) + ".jpg";
-	
-	cv::Mat imgGray, imgBlur, imgCanny, imgDil;
+	int num_ph = 20;
+	std::string file_name;
 
-	image = imread(file_name, cv::IMREAD_COLOR);
+	for (int i = 1; i <= num_ph; ++i)
+	{
+		file_name = "./Test_photo/wt" + std::to_string(i) + ".jpg";
 
-	//Preprocessing
-	cv::cvtColor(image, imgGray, cv::COLOR_BGR2GRAY);
-	cv::blur(imgGray, imgBlur, cv::Size(3, 3));
-	cv::Canny(imgGray, imgCanny, lowThreshold, lowThreshold * ratio, 3);
+		image = imread(file_name, cv::IMREAD_COLOR);
 
-	cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-	cv::dilate(imgCanny, imgDil, kernel);
+		find_QR(image);
+		find_tip(image);
+		findRect(boundRectQR, boundRectTip);
 
-	getContours(imgCanny, image);
+		cv::rectangle(image, boundRectTemp[0].tl(), boundRectTemp[0].br(), cv::Scalar(0, 255, 0), 2);
+		cv::rectangle(image, boundRectTemp[1].tl(), boundRectTemp[1].br(), cv::Scalar(0, 255, 0), 2);
 
+		boundRectTemp.clear();
+		//cv::imshow("Image mask", mask);
+		//cv::imshow("Dil", imgDil);
+		cv::imshow("origin " + std::to_string(i), image);
 
-	cv::imshow("origin", image);
-	//cv::imshow("Gaussian Blur", imgBlur);
-	//cv::imshow("Canny", imgCanny);
-	cv::imshow("Dil", imgCanny);
-
-	cv::waitKey(0);
+		cv::waitKey(0);
+		cv::destroyAllWindows();
+	}
 	cv::destroyAllWindows();
 
 	return 0;
