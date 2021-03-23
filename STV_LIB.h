@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <assert.h>
 
 
 // for storing RGB channels
@@ -31,7 +32,10 @@ cv::Scalar upper(hmax, smax, vmax);
 
 //¬естор с координатами всех контуров с QR и цветным наконечником
 std::vector<cv::Rect> boundRectQR, boundRectTip, boundRectTemp;
-int countRec = 0;
+float angle;
+
+#define NORMAL 0
+#define NEGATIVE_VAL 1
 
 
 //Find center of rectangle
@@ -79,21 +83,73 @@ void findRect(std::vector<cv::Rect> boundRectQR, std::vector<cv::Rect> boundRect
 	boundRectTemp.clear();
 	if (boundRectQR.size() != 0) {
 		boundRectTemp.push_back(boundRectQR[numQR]);
-		countRec++;
 	}
 	if (boundRectTip.size() != 0) {
 		boundRectTemp.push_back(boundRectTip[numTip]);
-		countRec++;
 	}
 }
 
+//Find coordinate of point
+void findCoord(cv::Point p, cv::Point& pOut, float scale) {
+	
+	if (scale <= 1 && scale > 0)
+	{
+		pOut.x = p.x * scale;
+		pOut.y = p.y * scale;
+	}
+	else {
+		assert(scale > 1 && scale <= 0);
+	}
+}
 
-void imorientation() {
-	cv::Point p1, p2;
-	p1 = findCentr(boundRectTemp[0]);
-	p2 = findCentr(boundRectTemp[1]);
+/*
+* p1 - координата QR
+* p2 - координата наконечника
+*/
+float findOrient(cv::Point p1, cv::Point p2, int mode) {
+	
+	//Ќайдем угол ч/з теорему косинусов
+	//а - сторона треугольника, напротив искомого угла 
+	//sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
+	float a = p1.x - p2.x;
+	float b = p1.y - p2.y;
+	float c = sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
 
+	float t = (pow(b, 2) + pow(c, 2) - pow(a, 2)) / (2 * b * c);
 
+	float angl = acos((pow(b, 2) + pow(c, 2) - pow(a, 2)) / (2 * b * c)) * 180 / 3.14;
+
+	if (p1.y > p2.y)
+	{
+		angl = 180 - angl;
+	}
+	if (p1.x < p2.x)
+	{
+		if(mode == NORMAL)
+			angl = 360 - angl;
+		if(mode == NEGATIVE_VAL)
+			angl -= 2 * angl;
+	}
+
+	return angl;
+}
+
+void imorientation(cv::Mat img, std::vector<cv::Rect> boundRect) {
+	cv::Point p, pOut, p1,pOut1;
+	p = findCentr(boundRect[0]);
+	findCoord(p, pOut, 1);
+	cv::circle(img, p, 5, cv::Scalar(0, 0, 255));
+	cv::putText(img, "Coordinate", { boundRect[0].x, boundRect[0].y - 50 }, cv::FONT_HERSHEY_DUPLEX, 0.55, cv::Scalar(0, 255, 102), 2, 1);
+	cv::putText(img, "x: " + std::to_string(pOut.x) + 
+		" y: " + std::to_string(pOut.y),
+		{ boundRect[0].x, boundRect[0].y - 30 }, cv::FONT_HERSHEY_DUPLEX, 0.55, cv::Scalar(0, 255, 102), 2, 1);
+	if (boundRect.size() == 2) {
+		p1 = findCentr(boundRect[1]);
+		cv::circle(img, p1, 5, cv::Scalar(255, 0, 0));
+		angle = findOrient(p, p1, NORMAL);
+		cv::putText(img, "Angle: " + std::to_string(angle), { boundRect[0].x, boundRect[0].y - 10 }, cv::FONT_HERSHEY_DUPLEX, 0.55, cv::Scalar(0, 255, 102), 2, 1);
+		angle = 0;
+	}
 
 }
 
@@ -202,4 +258,3 @@ void Draw(cv::Mat& image, const cv::Point& p, int weight, int height) {
 	cv::Rect rect(p.x, p.y, weight, height);
 	cv::rectangle(image, rect, cv::Scalar(0, 255, 0));
 }
-
