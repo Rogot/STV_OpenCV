@@ -5,6 +5,8 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/features2d/features2d.hpp>
 
+#include <opencv2/objdetect.hpp>
+
 #include <cmath>
 #include <algorithm>
 #include <assert.h>
@@ -32,6 +34,10 @@ cv::Scalar upper(hmax, smax, vmax);
 
 //Вестор с координатами всех контуров с QR и цветным наконечником
 std::vector<cv::Rect> boundRectQR, boundRectTip, boundRectTemp;
+std::vector<cv::Rect> boundRectTemp2;
+cv::Mat dst;
+int thresh_val = 0;
+int thresh_type = 0;
 float angle;
 
 #define NORMAL 0
@@ -119,16 +125,19 @@ float findOrient(cv::Point p1, cv::Point p2, int mode) {
 
 	float angl = acos((pow(b, 2) + pow(c, 2) - pow(a, 2)) / (2 * b * c)) * 180 / 3.14;
 
-	if (p1.y > p2.y)
-	{
-		angl = 180 - angl;
-	}
 	if (p1.x < p2.x)
 	{
-		if(mode == NORMAL)
-			angl = 360 - angl;
-		if(mode == NEGATIVE_VAL)
+		if (mode == NORMAL)
+		{
+			angl = 180 + angl;
+		}
+		if (mode == NEGATIVE_VAL) {
 			angl -= 2 * angl;
+		}
+	}
+	else
+	{
+		angl = 180 - angl;
 	}
 
 	return angl;
@@ -138,19 +147,146 @@ void imorientation(cv::Mat img, std::vector<cv::Rect> boundRect) {
 	cv::Point p, pOut, p1,pOut1;
 	p = findCentr(boundRect[0]);
 	findCoord(p, pOut, 1);
-	cv::circle(img, p, 5, cv::Scalar(0, 0, 255));
+	//cv::circle(img, p, 5, cv::Scalar(0, 0, 255));
 	cv::putText(img, "Coordinate", { boundRect[0].x, boundRect[0].y - 50 }, cv::FONT_HERSHEY_DUPLEX, 0.55, cv::Scalar(0, 255, 102), 2, 1);
 	cv::putText(img, "x: " + std::to_string(pOut.x) + 
 		" y: " + std::to_string(pOut.y),
 		{ boundRect[0].x, boundRect[0].y - 30 }, cv::FONT_HERSHEY_DUPLEX, 0.55, cv::Scalar(0, 255, 102), 2, 1);
 	if (boundRect.size() == 2) {
 		p1 = findCentr(boundRect[1]);
-		cv::circle(img, p1, 5, cv::Scalar(255, 0, 0));
+		//cv::circle(img, p1, 5, cv::Scalar(255, 0, 0));
 		angle = findOrient(p, p1, NORMAL);
 		cv::putText(img, "Angle: " + std::to_string(angle), { boundRect[0].x, boundRect[0].y - 10 }, cv::FONT_HERSHEY_DUPLEX, 0.55, cv::Scalar(0, 255, 102), 2, 1);
 		angle = 0;
 	}
 
+}
+
+//Find contours and drow it in the image
+std::vector<cv::Rect> getContours(cv::Mat imgDil, cv::Mat img, int numPix, float errRate, float koeff) {
+
+	std::vector<std::vector<cv::Point>> contours;
+	std::vector<cv::Vec4i> hierarchy;
+
+	cv::findContours(imgDil, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+	std::vector<std::vector<cv::Point>> conPoly(contours.size());
+	std::vector<cv::Rect> boundRect(contours.size());
+	
+	for (int i = 0; i < contours.size(); ++i)
+	{
+		//Определяем размер контуров
+		int area = cv::contourArea(contours[i]);
+
+		if (area > numPix - errRate && area < numPix + errRate)
+		{
+			float peri = cv::arcLength(contours[i], true);
+			cv::approxPolyDP(contours[i], conPoly[i], koeff * peri, true);
+
+			boundRect[i] = boundingRect(conPoly[i]);
+		}
+	}
+	return boundRect;
+}
+
+//Find contours and drow it in the image with countrs
+std::vector<cv::Rect> getContours(cv::Mat imgDil, cv::Mat img, int numPix, float errRate, float koeff, bool conturs, int countur_size) {
+
+	std::vector<std::vector<cv::Point>> contours;
+	std::vector<cv::Vec4i> hierarchy;
+
+	cv::findContours(imgDil, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+	std::vector<std::vector<cv::Point>> conPoly(contours.size());
+	std::vector<cv::Rect> boundRect(contours.size());
+
+	for (int i = 0; i < contours.size(); ++i)
+	{
+		//Определяем размер контуров
+		int area = cv::contourArea(contours[i]);
+
+
+		//if (area > 0 && area < 8000)
+		if (area > numPix - errRate && area < numPix + errRate)
+		{
+			float peri = cv::arcLength(contours[i], true);
+			cv::approxPolyDP(contours[i], conPoly[i], koeff * peri, true);
+			if (conturs == 1) {
+				cv::drawContours(img, conPoly, i, cv::Scalar(255, 0, 255), countur_size);
+
+				std::cout << area << std::endl;
+				cv::imshow("TEST", img);
+				cv::waitKey(0);
+			}
+
+			boundRect[i] = boundingRect(conPoly[i]);
+		}
+	}
+	return boundRect;
+}
+
+void clear_vect(std::vector<cv::Rect> boundRectTemp, std::vector<cv::Rect>& boundRect) {
+
+	boundRect.clear();
+	std::vector<cv::Rect>::iterator it = boundRectTemp.begin();
+	for (it; it < boundRectTemp.end(); ++it)
+	{
+		if (it->x > 0 || it->y > 0)
+		{
+			boundRect.push_back(*it);
+		}
+	}
+}
+ 
+
+//Find oriantation using QR-code
+void find(cv::Mat img) {
+	thresh_val = 146;
+
+	cv::cvtColor(img, imgGray, cv::COLOR_BGR2GRAY);
+	cv::threshold(imgGray, dst, thresh_val, 255, thresh_type);
+
+
+	boundRectTemp2 = getContours(dst, img, 10000, 10000, 0.001, 1, 1);
+
+	cv::imshow("dst", dst);
+	cv::waitKey(0);
+}
+
+//Find QR in the image
+void find_QR(cv::Mat img)
+{
+	//Preprocessing
+	cv::cvtColor(img, imgGray, cv::COLOR_BGR2GRAY);
+	cv::blur(imgGray, imgBlur, cv::Size(2, 2));
+	cv::Canny(imgGray, imgCanny, lowThreshold, lowThreshold * ratio, 3);
+
+	//cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
+	//cv::dilate(imgCanny, imgDil, kernel);
+
+	boundRectTemp = getContours(imgCanny, img, 2500, 300, 0.001);
+	clear_vect(boundRectTemp, boundRectQR);
+	//boundRectTemp.clear();
+}
+
+//Find orange tip
+void find_tip(cv::Mat img) {
+	cv::cvtColor(img, imgHSV, cv::COLOR_BGR2HSV);
+	cv::inRange(imgHSV, lower, upper, mask);
+	cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
+	cv::dilate(mask, imgDil, kernel);
+
+	boundRectTemp = getContours(imgDil, img, 500, 250, 0.02);
+	clear_vect(boundRectTemp, boundRectTip);
+	//boundRectTemp.clear();
+}
+
+/********* Useless functions now *********/
+
+//Drow rectingle
+void Draw(cv::Mat& image, const cv::Point& p, int weight, int height) {
+	cv::Rect rect(p.x, p.y, weight, height);
+	cv::rectangle(image, rect, cv::Scalar(0, 255, 0));
 }
 
 //Calculate histogramm
@@ -170,91 +306,4 @@ int* getHistogram(const cv::Mat arr)
 	}
 
 	return hist;
-}
-
-//Find contours and drow it in the image
-std::vector<cv::Rect> getContours(cv::Mat imgDil, cv::Mat img, int numPix, float errRate, float koeff) {
-
-	std::vector<std::vector<cv::Point>> contours;
-	std::vector<cv::Vec4i> hierarchy;
-
-	cv::findContours(imgDil, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-
-	//std::string objType;
-
-	std::vector<std::vector<cv::Point>> conPoly(contours.size());
-	std::vector<cv::Rect> boundRect(contours.size());
-	//cv::drawContours(img, contours, -1, cv::Scalar(255,0,255),2);
-
-	for (int i = 0; i < contours.size(); ++i)
-	{
-		//Определяем размер контуров
-		int area = cv::contourArea(contours[i]);
-
-
-		//if (area > 100 && area < 800)
-		if (area > numPix - errRate && area < numPix + errRate)
-		{
-			float peri = cv::arcLength(contours[i], true);
-			cv::approxPolyDP(contours[i], conPoly[i], koeff * peri, true);
-			//cv::drawContours(img, conPoly, i, cv::Scalar(255, 0, 255), 2);
-
-			boundRect[i] = boundingRect(conPoly[i]);
-
-			//cv::rectangle(img, boundRect[i].tl(), boundRect[i].br(), cv::Scalar(0, 255, 0), 2);
-			//cv::putText(img, objType, { boundRect[i].x, boundRect[i].y - 5 }, cv::FONT_HERSHEY_DUPLEX, 0.75, cv::Scalar(100, 50, 200), 2, 1);
-			std::cout << area << std::endl;
-
-			//cv::imshow("TEST", img);
-			cv::waitKey(0);
-		}
-	}
-	return boundRect;
-}
-
-
-void clear_vect(std::vector<cv::Rect> boundRectTemp, std::vector<cv::Rect>& boundRect) {
-
-	boundRect.clear();
-	std::vector<cv::Rect>::iterator it = boundRectTemp.begin();
-	for (it; it < boundRectTemp.end(); ++it)
-	{
-		if (it->x > 0 || it->y > 0)
-		{
-			boundRect.push_back(*it);
-		}
-	}
-}
-
-//Find QR in the image
-void find_QR(cv::Mat img)
-{
-	//Preprocessing
-	cv::cvtColor(img, imgGray, cv::COLOR_BGR2GRAY);
-	cv::blur(imgGray, imgBlur, cv::Size(3, 3));
-	cv::Canny(imgGray, imgCanny, lowThreshold, lowThreshold * ratio, 3);
-
-	//cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-	//cv::dilate(imgCanny, imgDil, kernel);
-
-	boundRectTemp = getContours(imgCanny, img, 2500, 300, 0.001);
-	clear_vect(boundRectTemp, boundRectQR);
-	//boundRectTemp.clear();
-}
-
-//Find orange tip
-void find_tip(cv::Mat img) {
-	cv::cvtColor(img, imgHSV, cv::COLOR_BGR2HSV);
-	cv::inRange(imgHSV, lower, upper, mask);
-	cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-	cv::dilate(mask, imgDil, kernel);
-	boundRectTemp = getContours(imgDil, img, 310, 110, 0.02);
-	clear_vect(boundRectTemp, boundRectTip);
-	//boundRectTemp.clear();
-}
-
-//Drow rectingle
-void Draw(cv::Mat& image, const cv::Point& p, int weight, int height) {
-	cv::Rect rect(p.x, p.y, weight, height);
-	cv::rectangle(image, rect, cv::Scalar(0, 255, 0));
 }
