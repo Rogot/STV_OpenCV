@@ -275,8 +275,14 @@ void find_tip(cv::Mat img) {
 	cv::inRange(imgHSV, lower, upper, mask);
 	cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
 	cv::dilate(mask, imgDil, kernel);
+//	cv::imshow("imgDil",imgDil);
 
-	boundRectTemp = getContours(imgDil, img, 500, 250, 0.02);
+	//Операция наращивания для соединения разделенных областей одного объекта
+	//kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
+	cv::dilate(imgDil, dst, kernel);
+	//cv::imshow("imgDilAfter", dst);
+
+	boundRectTemp = getContours(dst, img, 600, 300, 0.02);
 	clear_vect(boundRectTemp, boundRectTip);
 	//boundRectTemp.clear();
 }

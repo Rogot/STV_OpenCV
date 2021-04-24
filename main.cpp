@@ -31,7 +31,7 @@ cv::Point maxLoc(0,0);
 
 int main()
 {
-	int num_ph = 20;
+	int num_ph = 31;
 	std::string file_name;
 	cv::Mat imgCrop;
 
