@@ -14,20 +14,22 @@
 
 
 void is_video(std::string file_name);
-void is_video(std::string file_name, void* func);
-
-void is_photo(std::string file_name);
+template <typename T>
+void is_video(std::string file_name, T* func);
+template <typename T>
+void is_photo(std::string file_name, T* func);
 
 /*
 * num_ph - number of photos
 */
-void is_photo(std::string file_name, int num_ph);
+template <typename T>
+void is_photo(std::string file_name, int num_ph, T* func);
 
 
 
 
 
-void is_video(std::string file_name) {
+void is_video(std::string file_name, int frame_rate) {
 
 	cv::namedWindow("Video_file: " + file_name, cv::WINDOW_AUTOSIZE);
 
@@ -61,18 +63,19 @@ void is_video(std::string file_name) {
 }
 
 template <typename T>
-void is_video(std::string file_name, T* func) {
+void is_video(std::string file_name, int frame_rate, T* func, bool IsShow) {
 
 	cv::namedWindow("Video_file: " + file_name, cv::WINDOW_AUTOSIZE);
 
 	// get information about video file
 	cv::VideoCapture cap(file_name);
 	double fps = cap.get(cv::CAP_PROP_FPS);
-
+	int frame_num = 0;
 
 	while (cap.isOpened()) {
 		cv::Mat frame;
 		bool bSuccess = cap.read(frame);
+		frame_num++;
 
 		//Breaking the while loop at the end of the video
 		if (bSuccess == false)
@@ -81,9 +84,13 @@ void is_video(std::string file_name, T* func) {
 			break;
 		}
 
-		func(&frame);
+		if (frame_num % (60/frame_rate) == 0) {
+			if (IsShow) cv::imshow("Cap", frame);
 
-		cv::imshow("Cap", frame);
+			func(frame);
+
+			if (IsShow) cv::imshow("Filtered", frame);
+		}
 
 		if (cv::waitKey(10) == 27)
 		{
@@ -91,35 +98,25 @@ void is_video(std::string file_name, T* func) {
 			break;
 		}
 
+		//cv::waitKey(0);
+
 	}
 
 	cv::destroyAllWindows();
 }
 
+template <typename T>
+void is_photo(std::string file_name, T* func) {
 
-void is_photo(std::string file_name) {
-	
 	cv::Mat image;
 
 	image = imread(file_name, cv::IMREAD_COLOR);
-	find_QR(image);
-	find_tip(image);
-	findRect(boundRectQR, boundRectTip);
 
-	for (int i = 0; i < boundRectTemp.size(); ++i)
-	{
-		cv::rectangle(image, boundRectTemp[i].tl(), boundRectTemp[i].br(), cv::Scalar(0, 255, 0), 2);
-		imorientation(image, boundRectTemp);
-
-		boundRectTemp.clear();
-		cv::imshow("origin " + std::to_string(i), image);
-
-		cv::waitKey(0);
-		cv::destroyAllWindows();
-	}
+	func(&image);
 }
 
-void is_photo(std::string file_name, int num_ph) {
+template <typename T>
+void is_photo(std::string file_name, int num_ph, T* func) {
 
 	cv::Mat image;
 
@@ -128,21 +125,8 @@ void is_photo(std::string file_name, int num_ph) {
 		file_name = "./Test_photo/ct" + std::to_string(i) + ".jpg";
 
 		image = imread(file_name, cv::IMREAD_COLOR);
-		find_QR(image);
-		find_tip(image);
-		findRect(boundRectQR, boundRectTip);
-
-		for (int i = 0; i < boundRectTemp.size(); ++i)
-		{
-			cv::rectangle(image, boundRectTemp[i].tl(), boundRectTemp[i].br(), cv::Scalar(0, 255, 0), 2);
-			imorientation(image, boundRectTemp);
-
-			boundRectTemp.clear();
-			cv::imshow("origin " + std::to_string(i), image);
-
-			cv::waitKey(0);
-			cv::destroyAllWindows();
-		}
-
+		cv::imshow("image", image);
+		func(&image);
+		cv::imshow("After", image);
 	}
 }
