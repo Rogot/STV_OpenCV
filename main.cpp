@@ -42,29 +42,50 @@ void find_robot(cv::Mat& frame)
 
 void func(cv::Mat& frame)
 {
-	cv::Mat imgBlur, temp, imgCanny, imgCanny2, imgRes, imgDel;
+	cv::Mat imgBlur, temp, imgCanny, imgCanny2, imgRes, imgDel, res;
 	int contrSize = 2500;
 	int errRate = 200;
 	cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
 
-	//us::makeBorder(frame, temp, 0.25);
+	us::makeBorder(frame, temp, 0.25);
 
-	cv::imshow("original", frame);
+	cv::imshow("original", temp);
 
-	cv::resize(frame, imgRes, cv::Size(frame.cols * 0.5, frame.rows * 0.5));
+	cv::resize(temp, imgRes, cv::Size(frame.cols * 0.5, frame.rows * 0.5));
 
-	cv::medianBlur(imgRes, imgBlur, 7);
-	cv::imshow("blurtemp,", imgBlur);
-
-
-	cv::Canny(imgRes, imgCanny, lowThreshold, lowThreshold * ratio, 3);
-	cv::imshow("imgCanny", imgCanny);
+	//cv::Canny(imgRes, imgCanny, lowThreshold, lowThreshold * ratio, 3);
+	//cv::imshow("imgCanny", imgCanny);
 
 	us::equalizeHist_BGR(imgRes, frame);
 	cv::imshow("equalizeHist_BGR", frame);
 
-	//cv::namedWindow("Trackbars", (640, 200));
-	//cv::createTrackbar("Threshold", "Trackbars", &lowThreshold, 80);
+	us::markArea(frame, res, 3);
+	cv::imshow("res", res);
+
+	cv::medianBlur(res, imgBlur, 7);
+	cv::imshow("Blur", imgBlur);
+
+	cv::Canny(imgBlur, imgCanny, lowThreshold, lowThreshold * ratio, 3);
+	cv::imshow("imgCanny", imgCanny);
+
+	
+	/*
+	std::vector<cv::Mat> channels;
+	cv::split(frame, channels);
+
+	cv::Mat R, G, B;
+	cv::Canny(channels[0], B, lowThreshold, lowThreshold * ratio, 3);
+	cv::Canny(channels[1], G, lowThreshold, lowThreshold * ratio, 3);
+	cv::Canny(channels[2], R, lowThreshold, lowThreshold * ratio, 3);
+
+	cv::imshow("B", B);
+	cv::imshow("G", G);
+	cv::imshow("R", R);
+
+	*/
+
+	cv::namedWindow("Trackbars", (640, 200));
+	cv::createTrackbar("Threshold", "Trackbars", &lowThreshold, 150);
 
 	//cv::medianBlur(frame, blur, 3);
 
@@ -91,7 +112,7 @@ void func(cv::Mat& frame)
 	
 }
 
-#if 0
+
 int main()
 {
 	int num_ph = 31;
@@ -104,4 +125,3 @@ int main()
 	
 	return 0;
 }
-#endif
