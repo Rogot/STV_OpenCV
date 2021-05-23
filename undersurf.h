@@ -12,12 +12,22 @@
 #include <algorithm>
 #include <assert.h>
 
-typedef std::vector<cv::Point> ctr;
-typedef std::vector<ctr> ctrs;
+
+int* histogarmB;
+int* histogarmG;
+int* histogarmR;
+int sumHistB, sumHistG, sumHistR;
 
 
 namespace Unit
 {
+	struct BGR {
+		int B;
+		int G;
+		int R;
+	};
+
+
 	void decompozit(int number, std::vector<int>& divisors)
 	{
 		int divisor = 2;
@@ -70,6 +80,8 @@ namespace us
 
 		if (input.channels() < 3) return;
 
+		sumHistB = 0, sumHistG = 0, sumHistR = 0;
+
 		std::vector<cv::Mat> channels;
 		cv::split(input, channels);
 
@@ -77,6 +89,17 @@ namespace us
 		cv::equalizeHist(channels[0], B);
 		cv::equalizeHist(channels[1], G);
 		cv::equalizeHist(channels[2], R);
+
+		histogarmB = getHistogram(channels[0]);
+		histogarmG = getHistogram(channels[1]);
+		histogarmR = getHistogram(channels[2]);
+
+		for (int i = 0; i < 256; ++i)
+		{
+			sumHistB += histogarmB[i];
+			sumHistG += histogarmG[i];
+			sumHistR += histogarmR[i];
+		}
 
 		std::vector<cv::Mat> combined;
 		combined.push_back(B);
@@ -234,24 +257,67 @@ namespace us
 
 	}
 
-	void rootMeanSquareVal(const cv::Mat& input, cv::Point3_<uchar>* p)
+	void rootMeanSquareVal(Unit::BGR** kernel, cv::Point3_<uchar>* p, int size)
 	{
+		float averR = 0, averG = 0, averB = 0;
+		float sumR = 0, sumG = 0, sumB = 0;
 
+		for (int i = 0; i < size; ++i)
+		{
+			for (int j = 0; j < size; ++j)
+			{
+				averB = kernel[i][j].B;
+				averG = kernel[i][j].G;
+				averR = kernel[i][j].R;
+			}
+		}
+
+		averB /= size * size;
+		averG /= size * size;
+		averR /= size * size;
+
+		for (int i = 0; i < size; ++i)
+		{
+			for (int j = 0; j < size; ++j)
+			{
+				sumB = sqrt(pow(kernel[i][j].B - averB, 2) * histogarmB[kernel[i][j].B] / sumHistB);
+				sumG = sqrt(pow(kernel[i][j].G - averB, 2) * histogarmG[kernel[i][j].G] / sumHistG);
+				sumR = sqrt(pow(kernel[i][j].R - averB, 2) * histogarmR[kernel[i][j].R] / sumHistR);
+			}
+		}
 	}
 
-	void fillkernel(const cv::Mat& img, cv::Mat& kernel, int rectSize)
+	void fillkernel(const cv::Mat& img, Unit::BGR** kernel, int rectSize, int curX, int curY)
 	{
+		//cv::Point3_<uchar>* p, *current;
+		curX -= rectSize;
+		curY -= rectSize;
+
+		for (int i = 0; i < rectSize; ++i)
+		{
+			for (int j = 0; j < rectSize; ++j)
+			{
+				kernel[i][j].B = img.at<cv::Vec3b>(curY + i, curX + j)[0];
+				kernel[i][j].G = img.at<cv::Vec3b>(curY + i, curX + j)[1];
+				kernel[i][j].R = img.at<cv::Vec3b>(curY + i, curX + j)[2];
+			}
+		}
 
 	}
 
 
 	void markArea(const cv::Mat& input, cv::Mat& output, int rectSize)
 	{
-		cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(rectSize, rectSize));
+		//cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(rectSize, rectSize));
 		//cv::Mat cloneInput = cv::getStructuringElement(cv::MORPH_RECT, 
 		//	cv::Size(input.cols + (rectSize - 1), input.rows + (rectSize - 1)));
 		//std::vector<cv::Point> markedPoints;
 		//expBound(input, cloneInput, rectSize);
+
+		Unit::BGR** kernel;
+		kernel = new Unit::BGR * [rectSize];
+		for (int i = 0; i < rectSize; i++)
+			kernel[i] = new Unit::BGR[rectSize];
 
 		int b, g, r; //BGR
 		output = input.clone();
@@ -262,7 +328,9 @@ namespace us
 			for (int j = rectSize; j < input.cols - rectSize; ++j)
 			{
 				p = output.ptr<cv::Point3_<uchar> >(i, j);
-
+				fillkernel(input, kernel, rectSize, j, i);
+				rootMeanSquareVal(kernel, p, rectSize);
+				
 				if (p->x > p->y && p->x > p->z)
 				{
 					p->x = 255;
@@ -281,6 +349,7 @@ namespace us
 					p->y = 255;
 					p->z = 0;
 				}
+				
 			}
 		}
 	}
