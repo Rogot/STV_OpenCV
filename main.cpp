@@ -71,8 +71,8 @@ void func(cv::Mat& frame)
 	cv::namedWindow("Trackbars", (640, 200));
 	cv::createTrackbar("Mode", "Trackbars", &mode, 3);
 
-	/*
-	us::markArea(frame, res, 3);
+	
+	us::markArea(imgRes, res, 3);
 	cv::imshow("res", res);
 
 	cv::medianBlur(res, imgBlur, 7);
@@ -80,7 +80,7 @@ void func(cv::Mat& frame)
 
 	cv::Canny(imgBlur, imgCanny, lowThreshold, lowThreshold * ratio, 3);
 	cv::imshow("imgCanny", imgCanny);
-	*/
+	
 
 	
 	/*
