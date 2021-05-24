@@ -17,7 +17,7 @@
   std::string type = type_of_Mat(image.type());
   printf("Matrix: %s %dx%d \n", type.c_str(), image.cols, image.rows);
 */
-
+int mode = 3;
 
 
 
@@ -49,9 +49,15 @@ void func(cv::Mat& frame)
 
 	us::makeBorder(frame, temp, 0.25);
 
-	cv::imshow("original", temp);
+	cv::Rect roi(0, frame.rows * 0.25, frame.cols, frame.rows - frame.rows * 0.25);
+	cv::Mat imgCrop = frame(roi);
 
-	cv::resize(temp, imgRes, cv::Size(frame.cols * 0.5, frame.rows * 0.5));
+	cv::imshow("original", imgCrop);
+
+	cv::resize(imgCrop, imgRes, cv::Size(frame.cols * 0.5, frame.rows * 0.5));
+
+	createHistogram(imgRes, res);
+	cv::imshow("Histogram - 1", res);
 
 	//cv::Canny(imgRes, imgCanny, lowThreshold, lowThreshold * ratio, 3);
 	//cv::imshow("imgCanny", imgCanny);
@@ -59,6 +65,13 @@ void func(cv::Mat& frame)
 	us::equalizeHist_BGR(imgRes, frame);
 	cv::imshow("equalizeHist_BGR", frame);
 
+	createHistogram(frame, res, mode);
+	cv::imshow("Histogram - 2", res);
+
+	cv::namedWindow("Trackbars", (640, 200));
+	cv::createTrackbar("Mode", "Trackbars", &mode, 3);
+
+	/*
 	us::markArea(frame, res, 3);
 	cv::imshow("res", res);
 
@@ -67,6 +80,7 @@ void func(cv::Mat& frame)
 
 	cv::Canny(imgBlur, imgCanny, lowThreshold, lowThreshold * ratio, 3);
 	cv::imshow("imgCanny", imgCanny);
+	*/
 
 	
 	/*
@@ -84,8 +98,8 @@ void func(cv::Mat& frame)
 
 	*/
 
-	cv::namedWindow("Trackbars", (640, 200));
-	cv::createTrackbar("Threshold", "Trackbars", &lowThreshold, 150);
+	//cv::namedWindow("Trackbars", (640, 200));
+	//cv::createTrackbar("Threshold", "Trackbars", &lowThreshold, 150);
 
 	//cv::medianBlur(frame, blur, 3);
 
@@ -118,10 +132,10 @@ int main()
 	int num_ph = 31;
 	std::string file_name, video_name;
 	video_name = "./Test_photo/Second/Captured_file_2.avi";
-	file_name = "./Test_photo/ct1.jpg";
+	file_name = "./Test_photo/lena.jpg";
 	
 	us::isVideo(video_name, 10, func, 0);
-	//us::isPhoto(file_name, num_ph, find_robot);
+	//us::isPhoto(file_name, func);
 	
 	return 0;
 }

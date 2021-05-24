@@ -12,17 +12,9 @@
 #include <assert.h>
 
 
-// for storing RGB channels
-cv::Mat rgb;
-cv::Mat channel_rgb[3];
-// for storing RGB channels after conversion
-cv::Mat channel_rgb_range[3];
-// for storing total page
-cv::Mat rgb_and;
-
 //for finding QR
 cv::Mat imgGray, imgBlur, imgCanny, imgDil;
-int lowThreshold = 65;
+int lowThreshold = 25;
 float ratio = 3;
 
 //for fanding orange
@@ -111,6 +103,7 @@ void findCoord(cv::Point p, cv::Point& pOut, float scale) {
 /*
 * p1 - координата QR
 * p2 - координата наконечника
+* mode - выбор режима отображения углов больше 180 градусов
 */
 float findOrient(cv::Point p1, cv::Point p2, int mode) {
 	
@@ -225,6 +218,8 @@ std::vector<cv::Rect> getContours(cv::Mat imgDil, cv::Mat img, int numPix, float
 	return boundRect;
 }
 
+
+/********* Useless functions now *********/
 void clear_vect(std::vector<cv::Rect> boundRectTemp, std::vector<cv::Rect>& boundRect) {
 
 	boundRect.clear();
@@ -236,21 +231,6 @@ void clear_vect(std::vector<cv::Rect> boundRectTemp, std::vector<cv::Rect>& boun
 			boundRect.push_back(*it);
 		}
 	}
-}
- 
-
-//Find oriantation using QR-code
-void find(cv::Mat img) {
-	thresh_val = 146;
-
-	cv::cvtColor(img, imgGray, cv::COLOR_BGR2GRAY);
-	cv::threshold(imgGray, dst, thresh_val, 255, thresh_type);
-
-
-	boundRectTemp2 = getContours(dst, img, 10000, 10000, 0.001, 1, 1);
-
-	cv::imshow("dst", dst);
-	cv::waitKey(0);
 }
 
 //Find QR in the image
@@ -275,7 +255,7 @@ void find_tip(cv::Mat img) {
 	cv::inRange(imgHSV, lower, upper, mask);
 	cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
 	cv::dilate(mask, imgDil, kernel);
-//	cv::imshow("imgDil",imgDil);
+	//	cv::imshow("imgDil",imgDil);
 
 	//Операция наращивания для соединения разделенных областей одного объекта
 	//kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
@@ -286,8 +266,6 @@ void find_tip(cv::Mat img) {
 	clear_vect(boundRectTemp, boundRectTip);
 	//boundRectTemp.clear();
 }
-
-/********* Useless functions now *********/
 
 //Drow rectingle
 void Draw(cv::Mat& image, const cv::Point& p, int weight, int height) {
@@ -312,4 +290,110 @@ int* getHistogram(const cv::Mat arr)
 	}
 
 	return hist;
+}
+
+
+void createHistogram(const cv::Mat& input, cv::Mat& output) {
+	
+	std::vector<cv::Mat> channels;
+	cv::split(input, channels);
+
+	int histSize = 256; //from 0 to 255
+
+	/// Set the ranges ( for B,G,R) )
+	float range[] = { 0, 256 }; //the upper boundary is exclusive
+	const float* histRange = { range };
+
+	bool uniform = true; bool accumulate = false;
+
+	cv::Mat b_hist, g_hist, r_hist;
+
+	/// Compute the histograms:
+	calcHist(&channels[0], 1, 0, cv::Mat(), b_hist, 1, &histSize, &histRange, uniform, accumulate);
+	calcHist(&channels[1], 1, 0, cv::Mat(), g_hist, 1, &histSize, &histRange, uniform, accumulate);
+	calcHist(&channels[2], 1, 0, cv::Mat(), r_hist, 1, &histSize, &histRange, uniform, accumulate);
+
+	// Draw the histograms for R, G and B
+	int hist_w = 512; int hist_h = 400;
+
+	int bin_w = cvRound((double)hist_w / histSize);
+
+	cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0));
+
+	/// Normalize the result to [ 0, histImage.rows ]
+	normalize(b_hist, b_hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat());
+	normalize(g_hist, g_hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat());
+	normalize(r_hist, r_hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat());
+
+	for (int i = 1; i < histSize; i++)
+	{
+		line(histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(b_hist.at<float>(i - 1))),
+			cv::Point(bin_w * (i), hist_h - cvRound(b_hist.at<float>(i))),
+			cv::Scalar(255, 0, 0), 2, 8, 0);
+		line(histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(g_hist.at<float>(i - 1))),
+			cv::Point(bin_w * (i), hist_h - cvRound(g_hist.at<float>(i))),
+			cv::Scalar(0, 255, 0), 2, 8, 0);
+		line(histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(r_hist.at<float>(i - 1))),
+			cv::Point(bin_w * (i), hist_h - cvRound(r_hist.at<float>(i))),
+			cv::Scalar(0, 0, 255), 2, 8, 0);
+	}
+
+	output = histImage.clone();
+}
+
+void createHistogram(const cv::Mat& input, cv::Mat& output, int mode) {
+
+	std::vector<cv::Mat> channels;
+	cv::split(input, channels);
+
+	int histSize = 256; //from 0 to 255
+
+	/// Set the ranges ( for B,G,R) )
+	float range[] = { 0, 256 }; //the upper boundary is exclusive
+	const float* histRange = { range };
+
+	bool uniform = true; bool accumulate = false;
+
+	cv::Mat b_hist, g_hist, r_hist;
+
+	/// Compute the histograms:
+	calcHist(&channels[0], 1, 0, cv::Mat(), b_hist, 1, &histSize, &histRange, uniform, accumulate);
+	calcHist(&channels[1], 1, 0, cv::Mat(), g_hist, 1, &histSize, &histRange, uniform, accumulate);
+	calcHist(&channels[2], 1, 0, cv::Mat(), r_hist, 1, &histSize, &histRange, uniform, accumulate);
+
+	// Draw the histograms for R, G and B
+	int hist_w = 512; int hist_h = 400;
+
+	int bin_w = cvRound((double)hist_w / histSize);
+
+	cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0));
+
+	/// Normalize the result to [ 0, histImage.rows ]
+	normalize(b_hist, b_hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat());
+	normalize(g_hist, g_hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat());
+	normalize(r_hist, r_hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat());
+
+	for (int i = 1; i < histSize; i++)
+	{
+		if (mode == 0 || mode == 3)
+		{
+			line(histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(b_hist.at<float>(i - 1))),
+				cv::Point(bin_w * (i), hist_h - cvRound(b_hist.at<float>(i))),
+				cv::Scalar(255, 0, 0), 2, 8, 0);
+		}
+		if (mode == 1 || mode == 3)
+		{
+			line(histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(g_hist.at<float>(i - 1))),
+				cv::Point(bin_w * (i), hist_h - cvRound(g_hist.at<float>(i))),
+				cv::Scalar(0, 255, 0), 2, 8, 0);
+		}
+		if (mode == 2 || mode == 3)
+		{
+			line(histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(r_hist.at<float>(i - 1))),
+				cv::Point(bin_w * (i), hist_h - cvRound(r_hist.at<float>(i))),
+				cv::Scalar(0, 0, 255), 2, 8, 0);
+		}
+	}
+
+	output = histImage.clone();
 }
