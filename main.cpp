@@ -18,6 +18,7 @@
   printf("Matrix: %s %dx%d \n", type.c_str(), image.cols, image.rows);
 */
 int mode = 3;
+int blur = 9;
 
 
 
@@ -42,66 +43,150 @@ void find_robot(cv::Mat& frame)
 
 void func(cv::Mat& frame)
 {
-	cv::Mat imgBlur, temp, imgCanny, imgCanny2, imgRes, imgDel, res;
+	cv::Mat imgBlur, temp, imgCanny, imgCanny2, imgCanny3, imgRes, imgDel, res;
+	std::vector<cv::Mat> channelsRGB, channelsHSV, channelsRGBHist;
 	int contrSize = 2500;
 	int errRate = 200;
-	cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
+	cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
 
 	us::makeBorder(frame, temp, 0.25);
 
 	cv::Rect roi(0, frame.rows * 0.25, frame.cols, frame.rows - frame.rows * 0.25);
 	cv::Mat imgCrop = frame(roi);
 
-	cv::imshow("original", imgCrop);
 
 	cv::resize(imgCrop, imgRes, cv::Size(frame.cols * 0.5, frame.rows * 0.5));
+	cv::imshow("original", imgRes);
+	imgCrop = imgRes.clone();
 
-	createHistogram(imgRes, res);
-	cv::imshow("Histogram - 1", res);
+	//channelsRGB = showChannels(imgRes, 1);
 
-	//cv::Canny(imgRes, imgCanny, lowThreshold, lowThreshold * ratio, 3);
-	//cv::imshow("imgCanny", imgCanny);
+	cv::cvtColor(imgRes, temp, cv::COLOR_BGR2HSV);
+	cv::imshow("HSV", temp);
 
-	us::equalizeHist_BGR(imgRes, frame);
-	cv::imshow("equalizeHist_BGR", frame);
+	channelsHSV = showChannels(temp, 2);
 
-	createHistogram(frame, res, mode);
-	cv::imshow("Histogram - 2", res);
+	us::equalizeHist_BGR(imgRes, temp);
+	cv::imshow("equalizeHist_BGR", temp);
+	channelsRGBHist = showChannels(temp, 1);
 
-	cv::namedWindow("Trackbars", (640, 200));
-	cv::createTrackbar("Mode", "Trackbars", &mode, 3);
+	cv::medianBlur(channelsHSV[0], imgBlur, blur);
+	//cv::imshow("imgBlur - H", imgBlur);
+	cv::Canny(imgBlur, imgDel, lowThreshold, lowThreshold * ratio, 3);
+	cv::dilate(imgDel, imgCanny, kernel);
+	cv::imshow("imgCanny - H", imgCanny);
 
+	cv::medianBlur(channelsHSV[1], imgBlur, blur);
+	//cv::imshow("imgBlur - S", imgBlur);
+	cv::Canny(imgBlur, imgDel, lowThreshold, lowThreshold * ratio, 3);
+	cv::dilate(imgDel, imgCanny2, kernel);
+	cv::imshow("imgCanny - S", imgCanny2);
+
+	cv::medianBlur(channelsHSV[2], imgBlur, blur);
+	//cv::imshow("imgBlur - V", imgBlur);
+	cv::Canny(imgBlur, imgDel, lowThreshold, lowThreshold * ratio, 3);
+	cv::dilate(imgDel, imgCanny3, kernel);
+	cv::imshow("imgCanny - V", imgCanny3);
+
+
+	int h, s, v;
+	cv::Point3_<uchar>* p;
+
+	for (int i = 0; i < imgCanny.rows; ++i)
+	{
+		for (int j = 0; j < imgCanny.cols; ++j)
+		{
+			h = imgCanny.at<bool>(i, j);
+			s = imgCanny2.at<bool>(i, j);
+			v = imgCanny3.at<bool>(i, j);
+			p = imgCrop.ptr<cv::Point3_<uchar> >(i, j);
+
+			if (h == s && (h && s))
+			{
+				p->x = 255;
+				p->y = 0;
+				p->z = 0;
+			}
+			else if(h == v && (h && v))
+			{
+				p->x = 0;
+				p->y = 255;
+				p->z = 0;
+			}
+			else if (s == v && (v && s))
+			{
+				p->x = 0;
+				p->y = 0;
+				p->z = 255;
+			}
+			/*
+			else
+			{
+				p->x = 0;
+				p->y = 0;
+				p->z = 0;
+			}
+			*/
+		}
+	}
+
+
+	cv::imshow("original + mask", imgCrop);
+	//cv::imshow("imgCanny - H - 1", imgCanny);
+	//cv::imshow("imgCanny - S - 1", imgCanny2);
+	//cv::imshow("imgCanny - V - 1", imgCanny3);
+
+
+	/*
+	cv::imshow("H", channelsHSV[0]);
+	cv::imshow("S", channelsHSV[1]);
+	cv::imshow("V", channelsHSV[2]);
+	cv::equalizeHist(channelsHSV[2], res);
+	cv::imshow("V + hist", res);
+	std::vector<cv::Mat> combined;
+	combined.push_back(channelsHSV[0]);
+	combined.push_back(channelsHSV[1]);
+	combined.push_back(res);
+	cv::merge(combined, res);
+	cv::imshow("HSV + hist", res);
+	*/
+
+	/*
+	cv::imshow("B", channelsRGB[0]);
+	cv::imshow("G", channelsRGB[1]);
+	cv::imshow("R", channelsRGB[2]);
+
+
+	cv::imshow("B + hist", channelsRGBHist[0]);
+	cv::imshow("G + hist", channelsRGBHist[1]);
+	cv::imshow("R + hist", channelsRGBHist[2]);
+	*/
 	
-	us::markArea(imgRes, res, 3);
+
+	//createHistogram(frame, res, mode);
+	//cv::imshow("Histogram - 2", res);
+
+	//cv::namedWindow("Trackbars", (640, 200));
+	//cv::createTrackbar("Mode", "Trackbars", &mode, 3);
+
+	/*
+	us::markArea(frame, res, 3);
 	cv::imshow("res", res);
 
-	cv::medianBlur(res, imgBlur, 7);
+	cv::medianBlur(res, imgBlur, 15);
 	cv::imshow("Blur", imgBlur);
 
 	cv::Canny(imgBlur, imgCanny, lowThreshold, lowThreshold * ratio, 3);
 	cv::imshow("imgCanny", imgCanny);
-	
-
-	
-	/*
-	std::vector<cv::Mat> channels;
-	cv::split(frame, channels);
-
-	cv::Mat R, G, B;
-	cv::Canny(channels[0], B, lowThreshold, lowThreshold * ratio, 3);
-	cv::Canny(channels[1], G, lowThreshold, lowThreshold * ratio, 3);
-	cv::Canny(channels[2], R, lowThreshold, lowThreshold * ratio, 3);
-
-	cv::imshow("B", B);
-	cv::imshow("G", G);
-	cv::imshow("R", R);
-
 	*/
 
-	//cv::namedWindow("Trackbars", (640, 200));
-	//cv::createTrackbar("Threshold", "Trackbars", &lowThreshold, 150);
+	//cv::Canny(imgRes, imgCanny, lowThreshold, lowThreshold * ratio, 3);
+	//cv::imshow("imgCanny", imgCanny);
 
-	//cv::medianBlur(frame, blur, 3);
+	cv::namedWindow("Trackbars", (640, 200));
+	cv::createTrackbar("Threshold", "Trackbars", &lowThreshold, 150);
+	cv::namedWindow("Trackbars", (640, 200));
+	cv::createTrackbar("Blure", "Trackbars", &blur, 21);
 
 	//cv::dilate(temp, frame, kernel);
 	//cv::cvtColor(blur, frame, cv::COLOR_RGB2HSV);
