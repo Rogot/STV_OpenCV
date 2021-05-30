@@ -66,6 +66,10 @@ namespace us
 
 
 	void equalizeHist_BGR(const cv::Mat& input, cv::Mat& output);
+
+	void markArea(const cv::Mat& input, cv::Mat& output);
+
+	void markArea(const std::vector<cv::Mat> input, cv::Mat& output);
 }
 
 namespace us
@@ -257,7 +261,7 @@ namespace us
 		}
 	}
 
-	void markArea(const cv::Mat& input, cv::Mat& output, int rectSize)
+	void markArea(const cv::Mat& input, cv::Mat& output)
 	{
 		//cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(rectSize, rectSize));
 		//cv::Mat cloneInput = cv::getStructuringElement(cv::MORPH_RECT, 
@@ -265,27 +269,28 @@ namespace us
 		//std::vector<cv::Point> markedPoints;
 		//expBound(input, cloneInput, rectSize);
 
-
+		/*
 		int mediumB = 0, mediumG = 0, mediumR = 0;
 		Unit::BGR** kernel;
 		kernel = new Unit::BGR * [rectSize];
 		for (int i = 0; i < rectSize; i++)
 			kernel[i] = new Unit::BGR[rectSize];
-
+			*/
 		int b, g, r; //BGR
+		int h, s, v; //HSV
 		output = input.clone();
 		cv::Point3_<uchar>* p;
 
-		for (int i = rectSize; i < input.rows - rectSize; ++i)
+		for (int i = 0; i < input.rows; ++i)
 		{
-			for (int j = rectSize; j < input.cols - rectSize; ++j)
+			for (int j = 0; j < input.cols; ++j)
 			{
 				p = output.ptr<cv::Point3_<uchar> >(i, j);
 				
 				
 				if (p->x > p->y && p->x > p->z)
 				{
-					p->x = 255;
+					//p->x = 255;
 					p->y = 0;
 					p->z = 0;
 				}
@@ -293,20 +298,78 @@ namespace us
 				{
 					p->x = 0;
 					p->y = 0;
-					p->z = 255;
+					//p->z = 255;
 				}
 				else if (p->y > p->x && p->y > p->z)
 				{
 					p->x = 0;
-					p->y = 255;
+					//p->y = 255;
 					p->z = 0;
 				}
 				
 			}
 		}
 	}
-}
 
+	void markArea(const std::vector<cv::Mat> input, cv::Mat& output)
+	{
+		int mediumB = 0, mediumG = 0, mediumR = 0;
+		Unit::BGR** kernel;
+
+		int ext;
+		int b, g, r; //BGR
+		int h, s, v; //HSV
+		output = input.back().clone();
+		cv::Point3_<uchar>* p;
+
+		for (int i = 0; i < input[0].rows; ++i)
+		{
+			for (int j = 0; j < input[0].cols; ++j)
+			{
+				h = input[0].at<bool>(i, j);
+				s = input[1].at<bool>(i, j);
+				v = input[2].at<bool>(i, j);
+				//ext = input[3].at<bool>(i, j);
+				p = output.ptr<cv::Point3_<uchar> >(i, j);
+
+
+				if (h == s && (h && s))
+				{
+					p->x = 255;
+					p->y = 0;
+					p->z = 0;
+				}
+				else if (h == v && (h && v))
+				{
+					p->x = 0;
+					p->y = 255;
+					p->z = 0;
+				}
+				else if (s == v && (v && s))
+				{
+					p->x = 0;
+					p->y = 0;
+					p->z = 255;
+				}
+				/*else if (s == ext && (ext && s))
+				{
+					p->x = 120;
+					p->y = 120;
+					p->z = 120;
+				}
+				/*
+				else
+				{
+					p->x = 0;
+					p->y = 0;
+					p->z = 0;
+				}
+				*/
+
+			}
+		}
+	}
+}
 
 
 /*

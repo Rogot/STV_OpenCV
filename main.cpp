@@ -19,6 +19,9 @@
 */
 int mode = 3;
 int blur = 9;
+int lowThresholdS = 27;
+int lowThresholdV = 90; //34
+int lowThresholdH = 40;
 
 
 
@@ -43,11 +46,12 @@ void find_robot(cv::Mat& frame)
 
 void func(cv::Mat& frame)
 {
-	cv::Mat imgBlur, temp, imgCanny, imgCanny2, imgCanny3, imgRes, imgDel, res;
-	std::vector<cv::Mat> channelsRGB, channelsHSV, channelsRGBHist;
+	cv::Mat imgBlur, temp, imgCanny, imgCanny2, imgCanny3, imgCanny4, imgRes, imgDel, res, imgHist, mask;
+	std::vector<cv::Mat> channelsRGB, channelsHSV, channelsRGBHist, imgCannys;
 	int contrSize = 2500;
 	int errRate = 200;
-	cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
+	lowThreshold = 100;
+	cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7));
 
 	us::makeBorder(frame, temp, 0.25);
 
@@ -56,7 +60,7 @@ void func(cv::Mat& frame)
 
 
 	cv::resize(imgCrop, imgRes, cv::Size(frame.cols * 0.5, frame.rows * 0.5));
-	cv::imshow("original", imgRes);
+	//cv::imshow("original", imgRes);
 	imgCrop = imgRes.clone();
 
 	//channelsRGB = showChannels(imgRes, 1);
@@ -64,77 +68,53 @@ void func(cv::Mat& frame)
 	cv::cvtColor(imgRes, temp, cv::COLOR_BGR2HSV);
 	cv::imshow("HSV", temp);
 
-	channelsHSV = showChannels(temp, 2);
+	channelsHSV = getChannels(temp, 2, 1);
 
-	us::equalizeHist_BGR(imgRes, temp);
-	cv::imshow("equalizeHist_BGR", temp);
-	channelsRGBHist = showChannels(temp, 1);
+	us::equalizeHist_BGR(imgRes, imgHist);
+	//cv::imshow("equalizeHist_BGR", imgHist);
+	channelsRGBHist = getChannels(imgHist, 1, 0);
 
 	cv::medianBlur(channelsHSV[0], imgBlur, blur);
 	//cv::imshow("imgBlur - H", imgBlur);
-	cv::Canny(imgBlur, imgDel, lowThreshold, lowThreshold * ratio, 3);
+	cv::Canny(imgBlur, imgDel, lowThresholdH, lowThresholdH * ratio, 3);
 	cv::dilate(imgDel, imgCanny, kernel);
 	cv::imshow("imgCanny - H", imgCanny);
 
 	cv::medianBlur(channelsHSV[1], imgBlur, blur);
 	//cv::imshow("imgBlur - S", imgBlur);
-	cv::Canny(imgBlur, imgDel, lowThreshold, lowThreshold * ratio, 3);
+	cv::Canny(imgBlur, imgDel, lowThresholdS, lowThresholdS * ratio, 3);
 	cv::dilate(imgDel, imgCanny2, kernel);
 	cv::imshow("imgCanny - S", imgCanny2);
 
-	cv::medianBlur(channelsHSV[2], imgBlur, blur);
-	//cv::imshow("imgBlur - V", imgBlur);
-	cv::Canny(imgBlur, imgDel, lowThreshold, lowThreshold * ratio, 3);
+	/*
+	cv::medianBlur(channelsRGBHist[0], imgBlur, blur);
+	cv::imshow("imgBlur - V", imgBlur);
+	cv::Canny(imgBlur, imgDel, lowThresholdV, lowThresholdV * ratio, 3);
 	cv::dilate(imgDel, imgCanny3, kernel);
 	cv::imshow("imgCanny - V", imgCanny3);
+	*/
 
+	kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
+	us::markArea(imgHist, imgDel);
+	cv::medianBlur(imgDel, mask, blur);
+	cv::imshow("imgHist", mask);
+	cv::Canny(mask, imgDel, lowThreshold, lowThreshold * ratio, 3);
+	cv::dilate(imgDel, imgCanny4, kernel);
+	cv::imshow("imgCanny - 4", imgCanny4);
 
-	int h, s, v;
-	cv::Point3_<uchar>* p;
+	imgCannys.push_back(imgCanny);
+	imgCannys.push_back(imgCanny2);
+//	imgCannys.push_back(imgCanny3);
+	imgCannys.push_back(imgCanny4);
+	imgCannys.push_back(imgCrop);
 
-	for (int i = 0; i < imgCanny.rows; ++i)
-	{
-		for (int j = 0; j < imgCanny.cols; ++j)
-		{
-			h = imgCanny.at<bool>(i, j);
-			s = imgCanny2.at<bool>(i, j);
-			v = imgCanny3.at<bool>(i, j);
-			p = imgCrop.ptr<cv::Point3_<uchar> >(i, j);
+	us::markArea(imgCannys, imgCrop);
 
-			if (h == s && (h && s))
-			{
-				p->x = 255;
-				p->y = 0;
-				p->z = 0;
-			}
-			else if(h == v && (h && v))
-			{
-				p->x = 0;
-				p->y = 255;
-				p->z = 0;
-			}
-			else if (s == v && (v && s))
-			{
-				p->x = 0;
-				p->y = 0;
-				p->z = 255;
-			}
-			/*
-			else
-			{
-				p->x = 0;
-				p->y = 0;
-				p->z = 0;
-			}
-			*/
-		}
-	}
 
 
 	cv::imshow("original + mask", imgCrop);
-	//cv::imshow("imgCanny - H - 1", imgCanny);
-	//cv::imshow("imgCanny - S - 1", imgCanny2);
-	//cv::imshow("imgCanny - V - 1", imgCanny3);
+//	cv::imshow("mask", mask);
+//	cv::imshow("mask + Canny", imgCanny);
 
 
 	/*
@@ -185,6 +165,12 @@ void func(cv::Mat& frame)
 
 	cv::namedWindow("Trackbars", (640, 200));
 	cv::createTrackbar("Threshold", "Trackbars", &lowThreshold, 150);
+	cv::namedWindow("Trackbars", (640, 200));
+	cv::createTrackbar("lowThresholdS", "Trackbars", &lowThresholdS, 300);
+	cv::namedWindow("Trackbars", (640, 200));
+	cv::createTrackbar("lowThresholdV", "Trackbars", &lowThresholdV, 100);
+	cv::namedWindow("Trackbars", (640, 200));
+	cv::createTrackbar("lowThresholdH", "Trackbars", &lowThresholdH, 100);
 	cv::namedWindow("Trackbars", (640, 200));
 	cv::createTrackbar("Blure", "Trackbars", &blur, 21);
 
