@@ -4,6 +4,7 @@
 
 namespace us
 {
+
 	struct BGR {
 		int B;
 		int G;
@@ -16,6 +17,8 @@ namespace us
 		int X;
 		int Y;
 	};
+
+	void floodFill4(cv::Mat& input, int x, int y, us::BGR color);
 
 	class Area {
 		std::vector<cv::Point> points;

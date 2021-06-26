@@ -37,19 +37,20 @@ void find_robot(cv::Mat& frame)
 	for (int i = 0; i < boundRectTemp.size(); ++i)
 	{
 		cv::rectangle(frame, boundRectTemp[i].tl(), boundRectTemp[i].br(), cv::Scalar(0, 255, 0), 2);
-		imorientation(frame, boundRectTemp);
-
-		boundRectTemp.clear();
-		cv::imshow("origin " + std::to_string(i), frame);
-
-		cv::waitKey(0);
-		cv::destroyAllWindows();
 	}
+
+	imorientation(frame, boundRectTemp);
+
+	boundRectTemp.clear();
+	cv::imshow("origin", frame);
+
+	cv::waitKey(0);
+	cv::destroyAllWindows();
 }
 
-void func(cv::Mat& frame)
+void fcheus(cv::Mat& frame)
 {
-	cv::Mat imgBlur, temp, imgCanny, imgCanny2, imgCanny3, imgCanny4, imgRes, imgDel, res, imgHist, mask;
+	cv::Mat imgBlur, temp, imgCanny, imgCanny2, imgCanny3, imgCanny4, imgRes, imgDel, res, imgHist, mask, origin;
 	std::vector<cv::Mat> channelsRGB, channelsHSV, channelsRGBHist, imgCannys;
 	int contrSize = 2500;
 	int errRate = 200;
@@ -65,9 +66,10 @@ void func(cv::Mat& frame)
 	cv::Mat imgCrop = frame(roi);
 
 
-	cv::resize(imgCrop, imgRes, cv::Size(frame.cols * 0.4, frame.rows * 0.4));
-	cv::imshow("original", imgRes);
-	imgCrop = imgRes.clone();
+	cv::resize(imgCrop, origin, cv::Size(frame.cols * 0.5, frame.rows * 0.5));
+	cv::imshow("original", origin);
+	imgCrop = origin.clone();
+	imgRes = origin.clone();
 
 	channelsRGB = getChannels(imgRes, 1, 0);
 
@@ -117,8 +119,6 @@ void func(cv::Mat& frame)
 
 	us::findBorder(imgCannys, imgCrop, 1);
 
-
-
 	cv::imshow("original + mask", imgCrop);
 
 	cv::medianBlur(imgHist, imgBlur, blur_1);
@@ -135,7 +135,7 @@ void func(cv::Mat& frame)
 		for (int j = 0; j < imgHist.cols; ++j)
 		{
 			p = imgCrop.ptr<cv::Point3_<uchar> >(i, j);
-			h = imgHist.ptr<cv::Point3_<uchar> >(i, j);
+			h = origin.ptr<cv::Point3_<uchar> >(i, j);
 			c = imgCanny.ptr<cv::Point3_<uchar> >(i, j);
 			if ((p->x || p->y || p->z) > 0)
 			{
@@ -151,30 +151,37 @@ void func(cv::Mat& frame)
 			}
 		}
 	}
-	cv::imshow("mask", imgHist);
+	cv::imshow("mask", origin);
 	cv::imshow("channelsRGBHist", imgCanny);
 	cv::imshow("imgCrop", imgCrop);
 	//Areas.FindAreas(mask, res);
-	/*
+	
 	res = imgCrop.clone();
 	cv::dilate(res, imgCrop, kernel);
 
 	us::Areas Areas;
 	cv::Point point;
 	bool SuccesCheck = 1;
-
+	us::BGR color;
+	/*
 	while (SuccesCheck)
 	{
 		SuccesCheck = Areas.checkAreas(imgCrop, point);
 		int x = point.x;
 		int y = point.y;
-		Areas.fillArea(imgCrop, res, x, y);
+
+		color.B = 1 + rand() % 254;
+		color.G = 1 + rand() % 254;
+		color.R = 1 + rand() % 254;
+
+		//us::floodFill4(imgCrop, x, y, color);
+		//Areas.fillArea(imgCrop, res, x, y);
 		cv::imshow("imgCrop", res);
 		imgCrop = res.clone();
 		cv::waitKey(0);
 	}
 
-	cv::imshow("imgCrop", res);
+	cv::imshow("imgCrop", imgCrop);
 	*/
 
 
@@ -237,7 +244,7 @@ int main()
 	video_name = "./Test_photo/Second/Captured_file_2.avi";
 	file_name = "./Test_photo/lena.jpg";
 	
-	us::isVideo(video_name, 10, func, 0);
+	us::isVideo(video_name, 10, fcheus, 0);
 	//us::isPhoto(file_name, func);
 	
 	return 0;

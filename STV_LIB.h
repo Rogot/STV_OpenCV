@@ -114,7 +114,7 @@ float findOrient(cv::Point p1, cv::Point p2, int mode) {
 	float b = p1.y - p2.y;
 	float c = sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
 
-	float t = (pow(b, 2) + pow(c, 2) - pow(a, 2)) / (2 * b * c);
+	//float t = (pow(b, 2) + pow(c, 2) - pow(a, 2)) / (2 * b * c);
 
 	float angl = acos((pow(b, 2) + pow(c, 2) - pow(a, 2)) / (2 * b * c)) * 180 / 3.14;
 
@@ -183,7 +183,7 @@ std::vector<cv::Rect> getContours(cv::Mat imgDil, cv::Mat img, int numPix, float
 }
 
 //Find contours and drow it in the image with countrs
-std::vector<cv::Rect> getContours(cv::Mat imgDil, cv::Mat img, int numPix, float errRate, float koeff, bool conturs, int countur_size) {
+std::vector<cv::Rect> getContours(cv::Mat imgDil, cv::Mat img, int numPix, float errRate, float koeff, int conturs, int countur_size) {
 
 	std::vector<std::vector<cv::Point>> contours;
 	std::vector<cv::Vec4i> hierarchy;
@@ -204,12 +204,14 @@ std::vector<cv::Rect> getContours(cv::Mat imgDil, cv::Mat img, int numPix, float
 		{
 			float peri = cv::arcLength(contours[i], true);
 			cv::approxPolyDP(contours[i], conPoly[i], koeff * peri, true);
-			if (conturs == 1) {
+			if (conturs == 1 || conturs == 2) {
 				cv::drawContours(img, conPoly, i, cv::Scalar(255, 0, 255), countur_size);
-
+				
 				std::cout << area << std::endl;
-				cv::imshow("TEST", img);
-				cv::waitKey(0);
+				if (conturs == 2) {
+					cv::imshow("TEST", img);
+					cv::waitKey(0);
+				}
 			}
 
 			boundRect[i] = boundingRect(conPoly[i]);
@@ -245,8 +247,6 @@ void find_QR(cv::Mat img)
 	//cv::dilate(imgCanny, imgDil, kernel);
 
 	boundRectTemp = getContours(imgCanny, img, 2500, 300, 0.001);
-	clear_vect(boundRectTemp, boundRectQR);
-	//boundRectTemp.clear();
 }
 
 //Find orange tip
@@ -263,8 +263,6 @@ void find_tip(cv::Mat img) {
 	//cv::imshow("imgDilAfter", dst);
 
 	boundRectTemp = getContours(dst, img, 600, 300, 0.02);
-	clear_vect(boundRectTemp, boundRectTip);
-	//boundRectTemp.clear();
 }
 
 //Drow rectingle
@@ -396,4 +394,25 @@ void createHistogram(const cv::Mat& input, cv::Mat& output, int mode) {
 	}
 
 	output = histImage.clone();
+}
+
+std::vector<cv::Mat> getChannels(const cv::Mat& input, int mode, bool print)
+{
+	std::vector<cv::Mat> channels;
+	cv::split(input, channels);
+
+	if (print) {
+		if (mode == 1) {
+			cv::imshow("B", channels[0]);
+			cv::imshow("G", channels[1]);
+			cv::imshow("R", channels[2]);
+		}
+		else if (mode == 2) {
+			cv::imshow("H", channels[0]);
+			cv::imshow("S", channels[1]);
+			cv::imshow("V", channels[2]);
+		}
+	}
+
+	return channels;
 }

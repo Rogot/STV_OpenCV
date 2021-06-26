@@ -147,7 +147,7 @@ namespace us
 
 				func(frame);
 
-				//cv::waitKey(0);
+				cv::waitKey(0);
 
 				if (IsShow) cv::imshow("Filtered", frame);
 			}

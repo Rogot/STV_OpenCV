@@ -88,7 +88,6 @@ namespace us
 		us::Point left, up, down, cur, next;
 		bool flag = false;
 		int count = 0;
-		bool noDownUp = false;
 
 		int x = startX;
 		int y = startY;
@@ -132,29 +131,25 @@ namespace us
 			if ((cur.adrC->x && cur.adrC->y && cur.adrC->z) != 255)
 			{
 				count++;
-				noDownUp = true;
 				if ((up.adrC->x == 0 && up.adrC->y == 0 && up.adrC->z == 0) && y > 0) {
 					count = 0;
-					noDownUp = false;
 					setColor(cur.adrC, B, G, R);
 					cur.adrC = up.adrC;
 					y--;
 				}
 				else if ((next.adrC->x == 0 && next.adrC->y == 0 && next.adrC->z == 0) && x < output.cols - 1) {
 					count = 0;
-					noDownUp = false;
 					setColor(cur.adrC, B, G, R);
 					cur.adrC = next.adrC;
 					x++;
 				}
 				else if ((down.adrC->x == 0 && down.adrC->y == 0 && down.adrC->z == 0) && y < output.rows - 1) {
 					count = 0;
-					noDownUp = false;
 					setColor(cur.adrC, B, G, R);
 					cur.adrC = down.adrC;
 					y++;
 				}
-				else if ((left.adrC->x != 255 && left.adrC->y != 255 && left.adrC->z != 255) && x > 0 && noDownUp)
+				else if ((left.adrC->x != 255 && left.adrC->y != 255 && left.adrC->z != 255) && x > 0)
 				{
 					count = 0;
 					setColor(cur.adrC, B, G, R);
@@ -169,16 +164,33 @@ namespace us
 				}
 				if (count > 200) break;
 				if(c % 30 == 0){
-					//cv::imshow("imgCrop", output);
-					//cv::waitKey(0);
+					cv::imshow("imgCrop", output);
+					cv::waitKey(0);
 				}
 			}
 		}
 	}
 
-	void floodFill4(const cv::Mat& input, cv::Mat& output, int x, int y, int fillColor, int interiorColor)
-	{
+	int c = 0;
 
+	void floodFill4(cv::Mat& input, int x, int y, us::BGR color)
+	{
+		us::Point cur;
+		cv::Point p;
+		cur.adrC = input.ptr<cv::Point3_<uchar> >(y, x);
+		c++;
+		if((cur.adrC->x != 255 && cur.adrC->y != 255 && cur.adrC->z != 255) && (cur.adrC->x != color.B && cur.adrC->y != color.G && cur.adrC->z != color.R))
+		{
+			setColor(cur.adrC, color.B, color.G, color.R);
+			if (y > 0)
+			floodFill4(input, x, y - 1, color);
+			if (y < input.rows - 1)
+			floodFill4(input, x, y + 1, color);
+			if (x > 0)
+			floodFill4(input, x - 1, y, color);
+			if (x < input.cols - 1)
+			floodFill4(input, x + 1, y, color);
+		}
 	}
 
 
